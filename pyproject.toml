@@ -1,0 +1,24 @@
+[project]
+name = "telegram-markdown-render-bot"
+version = "0.1.0"
+description = "Telegram bot that renders Markdown (with math) to images via Playwright."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "python-telegram-bot>=21.6",
+    "playwright>=1.40",
+    "markdown-it-py>=3.0",
+    "mdit-py-plugins>=0.4",
+    "pygments>=2.17",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
