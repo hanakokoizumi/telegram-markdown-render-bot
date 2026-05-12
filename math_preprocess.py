@@ -20,18 +20,40 @@ def normalize_llm_latex_delimiters(markdown: str) -> str:
 
     Multiline ``\\(...\\)`` is treated as display math (converted to ``$$...$$``), since
     dollar-style inline math is normally single-line.
+
+    When needed, an extra newline is inserted before ``$$`` so block math starts a new
+    CommonMark paragraph (mdit ``math_block`` requires ``$$`` at the beginning of a block).
     """
     parts = _FENCE_SPLIT.split(markdown)
     return "".join(part if part.startswith("```") else _convert_brackets(part) for part in parts)
 
 
+def _blank_line_before_display_dollar(prefix: str) -> str:
+    """Block ``$$`` in mdit-py-plugins must start a new CommonMark block.
+
+    If the previous line is non-empty and only one newline separates it from ``$$``,
+    the ``$$`` line is merged into the paragraph: display math is not recognized,
+    ``=`` inside math can trigger setext headings, and stray ``$`` may appear next
+    to inline math spans.
+    """
+    if not prefix.strip():
+        return ""
+    tail = prefix.rstrip(" \t")
+    if tail.endswith("\n\n"):
+        return ""
+    if tail.endswith("\n"):
+        return "\n"
+    return "\n\n"
+
+
 def _convert_brackets(segment: str) -> str:
     # Display math first so nested patterns inside blocks are handled predictably.
-    segment = re.sub(
-        r"\\\[\s*([\s\S]*?)\\\]",
-        lambda m: "$$\n" + m.group(1).strip("\n") + "\n$$",
-        segment,
-    )
+    def _display_repl(m: re.Match[str]) -> str:
+        inner = m.group(1).strip("\n")
+        pad = _blank_line_before_display_dollar(segment[: m.start()])
+        return pad + "$$\n" + inner + "\n$$"
+
+    segment = re.sub(r"\\\[\s*([\s\S]*?)\\\]", _display_repl, segment)
     segment = re.sub(
         r"\\\(\s*([\s\S]*?)\\\)",
         _inline_or_display_replacement,
@@ -44,5 +66,6 @@ def _inline_or_display_replacement(match: re.Match[str]) -> str:
     inner = match.group(1)
     stripped = inner.strip()
     if "\n" in stripped:
-        return "$$\n" + stripped + "\n$$"
+        pad = _blank_line_before_display_dollar(match.string[: match.start()])
+        return pad + "$$\n" + stripped + "\n$$"
     return "$" + stripped + "$"

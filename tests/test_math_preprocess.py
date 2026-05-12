@@ -29,3 +29,17 @@ def test_multiline_paren_becomes_display() -> None:
     out = normalize_llm_latex_delimiters(s)
     assert "$$" in out
     assert "x +" in out
+
+
+def test_display_after_text_gets_blank_line_for_block_math() -> None:
+    """``$$`` must not sit on the paragraph-continuation line (setext / inline ``$`` bugs)."""
+    s = "通常假设：\n\\[\na\n=\nb\n\\]"
+    out = normalize_llm_latex_delimiters(s)
+    assert "通常假设：\n\n$$" in out
+
+
+def test_display_after_blank_line_not_double_spaced() -> None:
+    s = "Intro\n\n\\[\nx\n\\]"
+    out = normalize_llm_latex_delimiters(s)
+    assert "Intro\n\n$$" in out
+    assert "Intro\n\n\n\n$$" not in out
