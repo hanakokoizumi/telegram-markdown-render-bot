@@ -57,6 +57,33 @@ def test_parse_no_width_uses_default() -> None:
     )
     assert parsed.width == 500
     assert parsed.markdown == "# Hello\nworld"
+    assert parsed.send_as_photo is True
+    assert parsed.render_pixel_ratio == 1.0
+
+
+def test_parse_flags_file_and_quality() -> None:
+    parsed = parse_render_command(
+        "/md -f -h\n# Title\n",
+        default_width=500,
+        min_width=320,
+        max_width=2000,
+    )
+    assert parsed.send_as_photo is False
+    assert parsed.render_pixel_ratio == 3.0
+    assert parsed.markdown == "# Title\n"
+
+
+def test_parse_flags_width_order() -> None:
+    parsed = parse_render_command(
+        "/md 900 -m -p\nbody",
+        default_width=500,
+        min_width=320,
+        max_width=2000,
+    )
+    assert parsed.width == 900
+    assert parsed.send_as_photo is True
+    assert parsed.render_pixel_ratio == 2.0
+    assert parsed.markdown == "body"
 
 
 def test_extract_reply_markdown() -> None:

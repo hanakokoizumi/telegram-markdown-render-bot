@@ -6,12 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-COPY *.py ./
-
+# System deps first — rarely invalidates later layers.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Only dependency metadata before pip, so editing *.py does not bust this layer.
+COPY pyproject.toml ./
 
 RUN pip install --upgrade pip \
     && pip install python-telegram-bot>=21.6 \
@@ -23,5 +24,7 @@ RUN pip install --upgrade pip \
 
 RUN playwright install-deps chromium \
     && playwright install chromium
+
+COPY *.py ./
 
 CMD ["python", "main.py"]

@@ -1,4 +1,4 @@
-"""Parse `/md [width]` commands and extract Markdown source."""
+"""Parse `/md [options]` commands and extract Markdown source."""
 
 from __future__ import annotations
 
@@ -6,6 +6,9 @@ import re
 from dataclasses import dataclass
 
 _MD_CMD_RE = re.compile(r"^/md(?:@\S+)?\s*", re.MULTILINE)
+
+# Playwright device_scale_factor：与首行 `-l` / `-m` / `-h` 对应（档位 1～3）。
+RENDER_QUALITY_RATIOS: tuple[float, float, float] = (1.0, 2.0, 3.0)
 
 
 @dataclass(frozen=True)
@@ -15,6 +18,12 @@ class ParsedRenderCommand:
 
     markdown: str
     """Markdown body; may be empty if caller should fall back to replied message."""
+
+    send_as_photo: bool
+    """True：图片消息（`-p`）；False：文件（`-f`）。默认 True。"""
+
+    render_pixel_ratio: float
+    """由 `-l` / `-m` / `-h` 决定，对应 RENDER_QUALITY_RATIOS。"""
 
 
 def strip_render_command_prefix(text: str) -> str:
@@ -38,6 +47,44 @@ def clamp_width(
     return width
 
 
+def _parse_first_line_options(first_line: str) -> tuple[int | None, bool | None, int | None, str]:
+    """Parse optional width / flags from the first line; return remainder of that line for markdown."""
+    tokens = first_line.split()
+    if not tokens:
+        return None, None, None, ""
+
+    i = 0
+    width: int | None = None
+    send_as_photo: bool | None = None
+    quality: int | None = None
+
+    while i < len(tokens):
+        t = tokens[i]
+        if t == "-f":
+            send_as_photo = False
+            i += 1
+        elif t == "-p":
+            send_as_photo = True
+            i += 1
+        elif t == "-l":
+            quality = 1
+            i += 1
+        elif t == "-m":
+            quality = 2
+            i += 1
+        elif t == "-h":
+            quality = 3
+            i += 1
+        elif t.isdigit() and width is None:
+            width = int(t)
+            i += 1
+        else:
+            break
+
+    remainder = " ".join(tokens[i:])
+    return width, send_as_photo, quality, remainder
+
+
 def parse_render_command(
     text: str,
     *,
@@ -45,30 +92,42 @@ def parse_render_command(
     min_width: int,
     max_width: int,
 ) -> ParsedRenderCommand:
-    """Parse optional width and Markdown from text after the `/md` command."""
+    """Parse optional width、首行参数与 Markdown。"""
     rest = strip_render_command_prefix(text).lstrip()
     if not rest:
         return ParsedRenderCommand(
-            width=default_width,
+            width=clamp_width(default_width, min_width=min_width, max_width=max_width),
             markdown="",
+            send_as_photo=True,
+            render_pixel_ratio=RENDER_QUALITY_RATIOS[0],
         )
 
     lines = rest.split("\n", 1)
     first_line = lines[0].strip()
+    tail = lines[1].lstrip("\n") if len(lines) > 1 else ""
 
-    if first_line.isdigit():
-        w = clamp_width(int(first_line), min_width=min_width, max_width=max_width)
-        if len(lines) > 1:
-            return ParsedRenderCommand(width=w, markdown=lines[1].lstrip("\n"))
-        return ParsedRenderCommand(width=w, markdown="")
+    w_opt, photo_opt, quality_opt, first_remainder = _parse_first_line_options(first_line)
 
-    parts = rest.split(None, 1)
-    if parts and parts[0].isdigit():
-        w = clamp_width(int(parts[0]), min_width=min_width, max_width=max_width)
-        body = parts[1] if len(parts) > 1 else ""
-        return ParsedRenderCommand(width=w, markdown=body)
+    if first_remainder:
+        markdown = first_remainder if not tail else f"{first_remainder}\n{tail}"
+    else:
+        markdown = tail
 
-    return ParsedRenderCommand(width=default_width, markdown=rest)
+    width = clamp_width(
+        w_opt if w_opt is not None else default_width,
+        min_width=min_width,
+        max_width=max_width,
+    )
+    send_as_photo = True if photo_opt is None else photo_opt
+    tier = quality_opt if quality_opt is not None else 1
+    ratio = RENDER_QUALITY_RATIOS[tier - 1]
+
+    return ParsedRenderCommand(
+        width=width,
+        markdown=markdown,
+        send_as_photo=send_as_photo,
+        render_pixel_ratio=ratio,
+    )
 
 
 def extract_reply_markdown(reply) -> str:
