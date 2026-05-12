@@ -94,6 +94,8 @@ def _build_full_html(body_html: str, content_width_px: int) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/katex@{_KATEX_VERSION}/dist/katex.min.css" />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&amp;display=swap" />
   <style>
     :root {{
       --pad: 16px;
@@ -109,8 +111,9 @@ def _build_full_html(body_html: str, content_width_px: int) -> str:
       width: {width_expr}px;
       max-width: {width_expr}px;
       padding: var(--pad);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
-        Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      font-family: "Noto Serif SC", "Source Han Serif SC", "Source Han Serif CN",
+        ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei",
+        Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       font-size: 16px;
       line-height: 1.55;
       overflow-wrap: anywhere;
